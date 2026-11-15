@@ -1,0 +1,51 @@
+name: Phinix hourly monitor
+on:
+  schedule:
+    - cron: '57 * * * *'
+  workflow_dispatch:
+    inputs:
+      initialize:
+        description: Create state only for the first run (never resets existing state)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+concurrency:
+  group: phinix-monitor-state
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || vars.PHINIX_HOSTING_ENABLED == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned runtime
+        run: pip install --disable-pip-version-check -r requirements.txt
+      - name: Poll, save state, deliver and update dashboard
+        run: python -m app.github_runner
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PHINIX_STATE_BACKEND: supabase
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          INTIGRITI_TOKEN: ${{ secrets.INTIGRITI_TOKEN }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_CHANNEL_NAME: phinix
+          DISCORD_INCLUDE_DETAILS: 'false'
+          PHINIX_INITIALIZE: ${{ inputs.initialize && 'true' || 'false' }}
+          PHINIX_SEND_TEST: 'false'
+          INTIGRITI_DOMAINS_ONLY: 'true'
+          INTIGRITI_COLLECTIONS: activities
+          HTTP_TIMEOUT_SECONDS: '8'
+          PAGES_PER_CYCLE: '3'
+          INTIGRITI_ENABLED: ${{ secrets.INTIGRITI_TOKEN != '' && 'true' || 'false' }}
+          PHINIX_SITE_URL: ${{ vars.PHINIX_SITE_URL }}
+          PHINIX_SITE_TOKEN: ${{ secrets.PHINIX_SITE_TOKEN }}

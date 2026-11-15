@@ -1,0 +1,106 @@
+flowchart TD
+    A([Process starts]) --> B[Load and validate environment configuration]
+    B --> C{Configuration valid?}
+    C -- No --> C1[Fail startup; log sanitized error only] --> Z([Stopped])
+    C -- Yes --> D[Create shared HTTPX client: TLS, timeouts, no redirects]
+    D --> E[Initialize SQLite and apply versioned migrations]
+    E --> F{Database ready?}
+    F -- No --> F1[Fail startup and readiness safely] --> Z
+    F -- Yes --> G[Import recognized legacy state once; deduplicate]
+    G --> H[Start FastAPI liveness, readiness and safe status routes]
+
+    H --> I{Discord webhook configured?}
+    I -- Yes --> J[Start independent notification outbox dispatcher]
+    I -- No --> J0[Keep event storage active; delivery disabled]
+
+    H --> K{HackerOne credentials configured?}
+    K -- Yes --> K1[Start supervised HackerOne worker]
+    K -- No --> K0[Mark HackerOne disabled]
+    H --> L{Bugcrowd credentials configured?}
+    L -- Yes --> L1[Start supervised Bugcrowd worker]
+    L -- No --> L0[Mark Bugcrowd disabled]
+    H --> M{Intigriti contract and credentials verified?}
+    M -- Yes --> M1[Start supervised Intigriti worker]
+    M -- No --> M0[Keep Intigriti disabled; do not guess schema]
+
+    subgraph PROVIDER[Independent provider and collection worker]
+      P([Wait until next poll is due]) --> Q[Load collection checkpoint and acquire lock]
+      Q --> Q1{Select next provider collection}
+      Q1 -- HackerOne --> Q2[Hacktivity or authorized own reports]
+      Q1 -- Bugcrowd --> Q3[Engagements or submissions]
+      Q1 -- Intigriti --> Q4[Verified Researcher API activities]
+      Q2 --> R[Fetch current page from fixed official API host]
+      Q3 --> R
+      Q4 --> R
+      R --> S{HTTP outcome?}
+      S -- 401 or 403 --> T[Mark provider auth error; alert once; pause provider]
+      S -- 429 --> U[Honor Retry-After; apply provider-wide cooldown]
+      S -- Network, 408 or 5xx --> V[Bounded exponential backoff with jitter]
+      S -- Redirect or other 4xx --> W[Reject or classify request error]
+      S -- 2xx --> X{JSON and documented schema valid?}
+      X -- No --> Y[Record collection schema error; do not advance its checkpoint]
+      X -- Yes --> AA[Normalize records; validate stable IDs, timestamps and source URLs]
+      AA --> AB{Stable ID valid?}
+      AB -- No --> AC[Reject item; record schema error; do not advance page checkpoint]
+      AB -- Yes --> AD{First successful sync for collection?}
+      AD -- Yes --> AE[Persist silent baseline by default]
+      AD -- No --> AF[Compare unique ID and content fingerprint]
+      AF --> AG{New, changed or unchanged?}
+      AG -- New --> AH[Insert event]
+      AG -- Changed --> AI[Update event]
+      AG -- Unchanged --> AJ[Update last-seen timestamp only]
+      AH --> AK{Notification rules match and delivery enabled?}
+      AI --> AK
+      AK -- Yes --> AL[Insert outbox row with unique dedupe key]
+      AK -- No --> AM[Do not create notification]
+      AE --> AN[Commit event and page checkpoint atomically]
+      AJ --> AN
+      AL --> AN
+      AM --> AN
+      AN --> AO{More pages in this collection?}
+      AO -- Yes --> R
+      AO -- No --> AP{More collections for provider?}
+      AP -- Yes --> Q1
+      AP -- No --> AQ[Aggregate provider status: healthy, degraded or error]
+      V --> AR[Mark this collection failed; keep its checkpoint; continue siblings]
+      W --> AR
+      Y --> AR
+      AC --> AR
+      AR --> AP
+      T --> AS[Record provider auth state and schedule long cooldown]
+      U --> AT[Record provider rate-limit state and schedule Retry-After cooldown]
+      AS --> AQ
+      AT --> AQ
+      AQ --> AU[Schedule next poll; supervisor restarts unexpected worker exit]
+      AU --> P
+    end
+
+    K1 --> P
+    L1 --> P
+    M1 --> P
+
+    subgraph OUTBOX[Independent Discord delivery worker]
+      N([Read due pending rows]) --> O{Webhook configured?}
+      O -- No --> O0[Leave event persisted; delivery disabled]
+      O -- Yes --> O1[Atomically claim row with lease]
+      O1 --> O2[Validate fields and build safe embed]
+      O2 --> O3[POST HTTPS webhook; no redirects; suppress mentions]
+      O3 --> O4{Discord response?}
+      O4 -- 2xx --> O5[Mark notification sent]
+      O4 -- 429 --> O6[Honor Retry-After; return row to pending]
+      O4 -- Network or 5xx --> O7[Bounded retry with jitter]
+      O4 -- Permanent 4xx --> O8[Mark failed and expose safe status]
+      O5 --> N
+      O6 --> N
+      O7 --> N
+      O8 --> N
+    end
+    J --> N
+
+    H --> RUNTIME[Serve safe status and health endpoints]
+    RUNTIME --> RUNTIME
+    SH([SIGTERM / shutdown]) --> SH1[Stop scheduling new polls]
+    SH1 --> SH2[Finish or roll back active database transactions]
+    SH2 --> SH3[Stop provider workers and Discord dispatcher]
+    SH3 --> SH4[Close shared HTTP client]
+    SH4 --> Z
