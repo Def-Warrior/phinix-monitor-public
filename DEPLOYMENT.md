@@ -1,8 +1,8 @@
 # Free Render + Supabase deployment
 
-This guide describes the optional free Render viewer. The active deployment uses the private Sites website, Supabase storage, and the existing private GitHub worker. The public repository contains reviewed source only; leave its polling workflow disabled. Render rejected this account's explicit free-plan request on 20 November 2026 with HTTP 402 (payment information required), so no Render service was created.
+The active deployment uses [phinix-monitor.onrender.com](https://phinix-monitor.onrender.com), Supabase storage, and the existing private GitHub worker. The public repository contains reviewed source only; leave its polling workflow disabled. The private Sites mirror is also retained.
 
-Once provisioned, Render hosts one free Python web service. Supabase persists the private monitoring checkpoint and current domain feed. GitHub Actions runs the hourly Intigriti poller independently of Render sleep cycles.
+Render hosts one free Python web service in Singapore (0.1 CPU, 512 MB RAM), with no attached disk or paid database. Supabase persists the private monitoring checkpoint and current domain feed. GitHub Actions runs the hourly Intigriti poller independently of Render sleep cycles.
 
 1. Create a Supabase Free project. Apply the SQL files in `supabase/migrations/` in filename order. Verify both tables have RLS enabled and no public access.
 2. Save the project URL in `SUPABASE_URL` and a server secret key in `SUPABASE_SECRET_KEY`. Keep the key in GitHub Actions and Render secret settings, never in source or browser JavaScript.
@@ -26,4 +26,4 @@ Keep an encrypted or otherwise access-restricted off-site checkpoint backup. Res
 
 ## Free-tier limits
 
-Render sleeps after idle periods and has monthly free-service limits. Supabase Free has database and egress limits and may pause inactive projects. GitHub schedules can be delayed or disabled after long repository inactivity. Free plans do not guarantee uninterrupted service. Keep billing on Free and any GitHub paid-usage budget at zero; do not enable paid resources or automatic upgrades.
+Render sleeps after idle periods and has monthly free-service limits. The workspace's build pipeline spending limit is $0. With a payment method saved, outbound bandwidth beyond the included allowance can still be billed; the free compute plan is not an account-wide spending cap. See [Render's free-plan limits](https://render.com/docs/free#monthly-usage-limits). Supabase Free has database and egress limits and may pause inactive projects. GitHub schedules can be delayed or disabled after long repository inactivity. Free plans do not guarantee uninterrupted service. Keep compute on Free and any GitHub paid-usage budget at zero; do not enable paid resources or automatic upgrades.
