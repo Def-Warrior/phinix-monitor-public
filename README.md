@@ -4,7 +4,9 @@ A private dashboard for Intigriti testing domains, with new scope additions firs
 
 ## Free hosting
 
-Render serves the sign-in page and protected dashboard on a free `onrender.com` address. Supabase stores the monitoring checkpoint and domain feed. GitHub Actions checks Intigriti hourly and sends confirmed new-domain alerts to Discord. Sign in from any device using your private Phinix admin token.
+The active website uses the private Sites mirror with account sign-in. Supabase stores the monitoring checkpoint and domain feed. The existing private GitHub repository runs the hourly Intigriti worker and sends confirmed new-domain alerts to Discord; this public repository distributes reviewed source and does not run a second worker.
+
+The Render viewer is ready to deploy on a free `onrender.com` address, using a private Phinix admin token for sign-in from any device. On 20 November 2026, this account's free-plan creation request was rejected because Render requires payment information. No Render service was created. The Sites website remains available independently.
 
 Render runs in snapshot mode: it never polls providers or sends Discord messages. Its temporary cache reloads from Supabase after restarts and checks for updates every five minutes while signed-in requests are active. The browser refreshes every 15 seconds. Free Render services sleep when idle and may take about a minute to wake; GitHub polling continues independently.
 

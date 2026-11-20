@@ -1,8 +1,10 @@
 # Free Render + Supabase deployment
 
-Render hosts one free Python web service. Supabase persists the private monitoring checkpoint and current domain feed. GitHub Actions runs the hourly Intigriti poller independently of Render sleep cycles.
+This guide describes the optional free Render viewer. The active deployment uses the private Sites website, Supabase storage, and the existing private GitHub worker. The public repository contains reviewed source only; leave its polling workflow disabled. Render rejected this account's explicit free-plan request on 20 November 2026 with HTTP 402 (payment information required), so no Render service was created.
 
-1. Create a Supabase Free project. Run `supabase/migrations/202611140001_phinix.sql` in its SQL editor. Verify both tables have RLS enabled and no public access.
+Once provisioned, Render hosts one free Python web service. Supabase persists the private monitoring checkpoint and current domain feed. GitHub Actions runs the hourly Intigriti poller independently of Render sleep cycles.
+
+1. Create a Supabase Free project. Apply the SQL files in `supabase/migrations/` in filename order. Verify both tables have RLS enabled and no public access.
 2. Save the project URL in `SUPABASE_URL` and a server secret key in `SUPABASE_SECRET_KEY`. Keep the key in GitHub Actions and Render secret settings, never in source or browser JavaScript.
 3. Configure GitHub Actions secrets `SUPABASE_SECRET_KEY`, `INTIGRITI_TOKEN`, and `DISCORD_WEBHOOK_URL`. Add repository variable `SUPABASE_URL`. Keep `PHINIX_HOSTING_ENABLED` unset until initial state is ready.
 4. For a fresh installation only, manually run the monitor with `initialize=true`. For an existing installation, pause the old writer, copy its latest validated checkpoint to Supabase, verify it, then run with `initialize=false`. Never initialize over missing historical state as a recovery shortcut.
