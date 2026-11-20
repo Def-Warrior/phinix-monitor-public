@@ -19,7 +19,7 @@ jobs:
   monitor:
     if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || vars.PHINIX_HOSTING_ENABLED == 'true')
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:

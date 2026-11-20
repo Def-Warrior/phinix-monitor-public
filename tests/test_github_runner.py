@@ -209,6 +209,29 @@ async def test_failed_first_save_never_sends_discord(db, settings):
     assert not requests
 
 
+async def test_delivery_can_drain_more_than_twenty_alerts(db, settings, monkeypatch):
+    service = MonitoringService(db, settings, None)
+    state = CaptureState()
+    delivered = 0
+
+    async def once():
+        nonlocal delivered
+        assert state.snapshots, "Outbox must be durable before delivery"
+        if delivered == 25:
+            return False
+        delivered += 1
+        return True
+
+    async def no_delay(seconds):
+        pass
+
+    service.dispatcher.once = once
+    monkeypatch.setattr("app.github_runner.asyncio.sleep", no_delay)
+    await run_cycle(service, state)
+    assert delivered == 25
+    assert len(state.snapshots) == 2
+
+
 async def test_failed_final_save_keeps_durable_pending_outbox(db, settings):
     state = CaptureState(fail_at=2)
     async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _: httpx.Response(200))) as client:

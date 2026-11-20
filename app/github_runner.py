@@ -239,7 +239,7 @@ def domain_dashboard(service, status, phase, warnings):
     return "\n".join(lines)
 
 
-async def run_cycle(service, state, *, send_test=False, poll_seconds=30, delivery_seconds=15):
+async def run_cycle(service, state, *, send_test=False, poll_seconds=30, delivery_seconds=45):
     for name, adapter in service.adapters.items():
         for collection in adapter.collections:
             service.db.ensure_collection(name, collection)
@@ -260,7 +260,7 @@ async def run_cycle(service, state, *, send_test=False, poll_seconds=30, deliver
     await state.save(service.db, dashboard(service, "Events saved; delivery pending", warnings))
     try:
         async with asyncio.timeout(delivery_seconds):
-            for _ in range(20):
+            for _ in range(100):
                 if not await service.dispatcher.once():
                     break
                 await asyncio.sleep(0.5)
