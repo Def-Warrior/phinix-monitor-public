@@ -24,7 +24,7 @@ class SupabaseViewer:
         async with self.lock:
             if time.monotonic() < self.next_check and self.db:
                 return self.db
-            self.next_check = time.monotonic() + 300
+            self.next_check = time.monotonic() + 2
             candidate = Path(self.directory.name) / f"{uuid4()}.db"
             revision = self.state.revision
             try:

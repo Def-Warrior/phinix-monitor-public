@@ -208,6 +208,16 @@ def create_app(settings=None, transport=None):
     async def status(request: Request):
         return request.app.state.service.status()
 
+    @app.get("/api/updates", dependencies=[Depends(authenticate)])
+    async def updates(request: Request):
+        remote = request.app.state.remote
+        status = request.app.state.service.status()
+        return {
+            "revision": remote.state.revision if remote else None,
+            "refresh_failed": bool(remote and remote.failed),
+            "stale": status.get("snapshot_stale", False),
+        }
+
     @app.get("/api/integrations", dependencies=[Depends(authenticate)])
     async def integrations(request: Request):
         status = request.app.state.service.status()

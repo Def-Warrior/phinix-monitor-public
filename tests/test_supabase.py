@@ -134,6 +134,30 @@ async def test_viewer_retains_last_good_snapshot(db, settings, tmp_path, monkeyp
             viewer.close()
 
 
+async def test_revision_checks_skip_unchanged_snapshot_downloads(db, settings, tmp_path):
+    row = checkpoint(db, settings, tmp_path)
+    downloaded = []
+
+    def handle(request):
+        projection = request.url.params["select"]
+        downloaded.append(projection)
+        return httpx.Response(200, json=[{key: row[key] for key in projection.split(",")}])
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as client:
+        state = SupabaseState(client, URL, KEY)
+        assert await state.load(tmp_path / "first.db")
+        assert not await state.load(tmp_path / "unchanged.db")
+        assert not (tmp_path / "unchanged.db").exists()
+        row["revision"] = str(uuid4())
+        assert await state.load(tmp_path / "changed.db")
+    assert downloaded == [
+        "revision,body,sha256,byte_count",
+        "revision",
+        "revision",
+        "revision,body,sha256,byte_count",
+    ]
+
+
 def test_web_signin_required_and_no_background_workers(db, settings, tmp_path, monkeypatch):
     monkeypatch.setenv("SUPABASE_URL", URL)
     monkeypatch.setenv("SUPABASE_SECRET_KEY", KEY)
@@ -144,6 +168,7 @@ def test_web_signin_required_and_no_background_workers(db, settings, tmp_path, m
         assert client.get("/health/ready").status_code == 200
         assert client.get("/api/domains").status_code == 401
         assert client.get("/api/status").status_code == 401
+        assert client.get("/api/updates").status_code == 401
         assert (
             client.post(
                 "/api/login",
@@ -156,6 +181,11 @@ def test_web_signin_required_and_no_background_workers(db, settings, tmp_path, m
             client.post("/api/login", json={"token": cfg.admin_token.get_secret_value()}).status_code == 200
         )
         assert client.get("/api/domains").status_code == 200
+        assert client.get("/api/updates").json() == {
+            "revision": row["revision"],
+            "refresh_failed": False,
+            "stale": False,
+        }
         assert not app.state.service.tasks and not app.state.service.adapters
         assert not cfg.delivery_enabled
         assert client.post("/api/notifications/test").status_code == 403

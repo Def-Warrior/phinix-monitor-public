@@ -52,6 +52,16 @@ class SupabaseState:
             raise CloudStateError("supabase_state_unavailable") from None
 
     async def load(self, destination, initialize=False):
+        if self.revision is not None:
+            metadata = await self.request("GET", "phinix_checkpoint?id=eq.1&select=revision")
+            try:
+                if not isinstance(metadata, list) or len(metadata) != 1:
+                    raise ValueError
+                current = str(UUID(metadata[0]["revision"]))
+            except (KeyError, TypeError, ValueError):
+                raise CloudStateError("invalid_supabase_state") from None
+            if current == self.revision:
+                return False
         rows = await self.request("GET", "phinix_checkpoint?id=eq.1&select=revision,body,sha256,byte_count")
         if rows == []:
             if not initialize:

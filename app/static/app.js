@@ -1,6 +1,7 @@
 'use strict';
 const $ = id => document.getElementById(id);
 let offset = 0, total = 0, active = false, loading = false, domainOnly = false;
+let lastUpdate = '';
 const pageSize = 25;
 function text(tag, value, cls) { const e = document.createElement(tag); e.textContent = value; if (cls) e.className = cls; return e; }
 function badge(value) { const good = ['healthy','sent','ready','enabled'].includes(value); const bad = ['error','auth_error','failed'].includes(value); const e = text('span', value.replaceAll('_',' '), 'badge' + (good ? '' : bad ? ' error' : ['syncing','degraded','rate_limited','pending','sending'].includes(value) ? ' warning' : ' neutral')); return e; }
@@ -30,7 +31,7 @@ function renderStatus(s) {
   $('delivery-list').replaceChildren(...s.notifications.recent.slice(0,8).map(r=>{const row=text('div','','delivery-row'); const label=text('div',date(r.created_at));label.append(text('small',r.error_code ? r.error_code.replaceAll('_',' ') : `${r.attempts} delivery attempts`));row.append(label,badge(r.state));return row;}));
   $('checkpoints').replaceChildren(...s.collections.map(c=>{const row=text('div','','checkpoint');const label=text('div',`${names[c.provider]} / ${c.name}`);label.append(text('small',`${c.baseline_done?'Baseline saved':'Building baseline'} · ${c.pages} pages · ${date(c.last_success)}`));if(c.error_code)label.append(text('small',c.error_code.replaceAll('_',' ')));row.append(label,badge(c.status));return row;}));
   if(!s.collections.length)$('checkpoints').append(text('p','Checkpoints appear when a provider is configured.','muted'));
-  $('updated').textContent=cloud ? `Cloud data: ${date(s.snapshot_updated_at)} · local sync every 5 min` : `Updated ${new Date().toLocaleTimeString()} · auto-refresh 15s`;
+  $('updated').textContent=cloud ? `Cloud data: ${date(s.snapshot_updated_at)} · checks for saved updates every 2s` : `Updated ${new Date().toLocaleTimeString()} · auto-refresh 2s`;
 }
 async function loadEvents() {
   if(domainOnly) return loadDomains();
@@ -44,7 +45,7 @@ async function loadEvents() {
   $('previous').disabled=offset===0;$('next').disabled=offset+pageSize>=total;
   $('page-label').textContent=total ? `${offset+1}–${Math.min(offset+pageSize,total)} of ${total}` : 'No events yet';
 }
-async function refresh() { if(loading)return;loading=true;try{const s=await api('/api/status');signedIn(true);renderStatus(s);await loadEvents();}catch(e){if(e.status===401){signedIn(false);}else{notice(e.message);$('connection').textContent='Connection unavailable';$('connection').className='badge error';}}finally{loading=false;} }
+async function refresh(background=false) { if(loading)return;loading=true;try{const update=await api('/api/updates');const marker=JSON.stringify(update);if(background&&update.revision&&marker===lastUpdate)return;const s=await api('/api/status');signedIn(true);renderStatus(s);await loadEvents();lastUpdate=marker;}catch(e){lastUpdate='';if(e.status===401){signedIn(false);}else{notice(e.message);$('connection').textContent='Connection unavailable';$('connection').className='badge error';}}finally{loading=false;} }
 $('login-form').addEventListener('submit',async e=>{e.preventDefault();notice();const button=e.target.querySelector('button');button.disabled=true;try{await api('/api/login',{method:'POST',body:JSON.stringify({token:$('token').value})});$('token').value='';await refresh();}catch(err){notice(err.message);}finally{button.disabled=false;}});
 $('logout').addEventListener('click',async()=>{try{await api('/api/logout',{method:'POST'});signedIn(false);notice();}catch(e){notice(e.message);}});
 $('filters').addEventListener('submit',async e=>{e.preventDefault();offset=0;try{await loadEvents();}catch(err){notice(err.message);}});
@@ -52,7 +53,8 @@ $('previous').addEventListener('click',()=>{offset=Math.max(0,offset-pageSize);l
 $('next').addEventListener('click',()=>{offset+=pageSize;loadEvents().catch(e=>notice(e.message));});
 $('refresh').addEventListener('click',()=>{notice();refresh();});
 $('test-discord').addEventListener('click',async()=>{try{await api('/api/notifications/test',{method:'POST'});notice('Connection test queued. Check this queue and your Discord channel for delivery.');await refresh();}catch(e){notice(e.message);}});
-refresh();setInterval(()=>{if(active&&!document.hidden)refresh();},15000);
+refresh();setInterval(()=>{if(active&&!document.hidden)refresh(true);},2000);
+document.addEventListener('visibilitychange',()=>{if(active&&!document.hidden)refresh(true);});
 
 function renderDomainFocus() {
   document.body.classList.add('domain-only');
