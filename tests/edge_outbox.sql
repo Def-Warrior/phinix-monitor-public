@@ -6,9 +6,15 @@ begin
  perform 1 from public.phinix_runtime where id=1 for update;
  if exists(select 1 from public.phinix_runtime where lease_until>extract(epoch from now())) then raise exception 'monitor_busy_retry_test'; end if;
  update public.phinix_runtime set lease_owner=owner_id,lease_until=extract(epoch from now())+30,discord_cooldown=0 where id=1;
- insert into public.phinix_live_state values('job:'||test_job,'job',jsonb_build_object('id',test_job,'program_id',test_program,'notify',true,'status','pending','occurred_at',extract(epoch from now())::bigint));
+ insert into public.phinix_live_state values('job:'||test_job,'job',jsonb_build_object('id',test_job,'program_id',test_program,'kind','scope','api_seen_at',now()-interval '2 seconds','notify',true,'status','pending','occurred_at',extract(epoch from now())::bigint));
+ insert into public.phinix_live_state values('job:old:'||test_job,'job',jsonb_build_object('id','old:'||test_job,'program_id',test_program,'kind','status','notify',false,'status','error','error_code','scope_access_denied','next_attempt',0,'occurred_at',0));
+ insert into public.phinix_live_state values('job:new:'||test_job,'job',jsonb_build_object('id','new:'||test_job,'program_id',test_program,'kind','status','notify',false,'status','error','error_code','scope_access_denied','next_attempt',0,'occurred_at',1));
+ perform public.phinix_edge_rpc('ingest',jsonb_build_object('owner',owner_id,'jobs','[]'::jsonb,'hash','diagnostic-rollback'));
+ if not exists(select 1 from public.phinix_live_state where id='job:old:'||test_job and data->>'status'='superseded') then raise exception 'duplicate_status_not_consolidated'; end if;
+ if not exists(select 1 from public.phinix_live_state where id='job:'||test_job and data->>'status'='pending') then raise exception 'scope_comparison_wrongly_superseded'; end if;
  result:=public.phinix_edge_rpc('finish_job',jsonb_build_object('owner',owner_id,'job_id',test_job,'status','open','scope_url','https://app.intigriti.com/researcher/dashboard','domains','{"edge-test.invalid":["https://edge-test.invalid"]}'::jsonb,'additions',jsonb_build_array(jsonb_build_object('id',test_addition,'change_id',test_job,'domain','edge-test.invalid','endpoints','["https://edge-test.invalid"]'::jsonb,'occurred_at',extract(epoch from now())::bigint))));
  if result<>'true'::jsonb then raise exception 'finish_failed'; end if;
+ if not exists(select 1 from public.phinix_live_state where id='job:new:'||test_job and data->>'status'='done' and data->>'error_code' is null) then raise exception 'restored_access_not_recovered'; end if;
  claimed:=public.phinix_edge_rpc('claim_delivery',jsonb_build_object('owner',owner_id));
  if not exists(select 1 from jsonb_array_elements(claimed) x where x->>'id'=test_addition) then raise exception 'claim_failed'; end if;
  perform public.phinix_edge_rpc('delivery_result',jsonb_build_object('owner',owner_id,'ids',jsonb_build_array(test_addition),'code','rate_limited','delay',12));
@@ -19,6 +25,7 @@ begin
  claimed:=public.phinix_edge_rpc('claim_delivery',jsonb_build_object('owner',owner_id));
  perform public.phinix_edge_rpc('delivery_result',jsonb_build_object('owner',owner_id,'ids',jsonb_build_array(test_addition),'code','sent','message_id','simulated-rollback-only'));
  if not exists(select 1 from public.phinix_live_state where id='outbox:'||test_addition and data->>'state'='sent') then raise exception 'ack_failed'; end if;
+ if not exists(select 1 from public.phinix_runtime where last_source_delivery_ms>=0 and last_api_seen_delivery_ms>=1900) then raise exception 'real_delivery_timing_not_recorded'; end if;
  if exists(select 1 from jsonb_array_elements(public.phinix_edge_rpc('claim_delivery',jsonb_build_object('owner',owner_id))) x where x->>'id'=test_addition) then raise exception 'duplicate_delivery'; end if;
 end $test$;
 rollback;

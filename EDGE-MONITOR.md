@@ -24,6 +24,10 @@ Under-ten-second delivery is a target from API visibility, not a guarantee from 
 
 `last_delivery_latency_ms` measures outbox creation to Discord acknowledgement, not original Intigriti publication time. Do not report it as publication-to-delivery latency.
 
+`last_source_delivery_ms` measures the provider activity timestamp to Discord acknowledgement. `last_api_seen_delivery_ms` measures the worker's first observation of that activity to acknowledgement, including queued comparison work. These are recorded only for real domain alerts; a diagnostic message does not populate them. The dashboard displays these measurements after a real delivery.
+
+Multiple status checks for the same program are consolidated; older status checks remain as superseded audit records. Version comparisons are preserved independently. Program-level 403 responses appear as distinct restricted programs, with hourly access retries, rather than multiple general processing failures. Access must be granted by Intigriti/the program owner; the worker does not bypass it.
+
 ## Validation
 
 Run `pytest -q --cov=app --cov-fail-under=85` and `node --test tests/edge.test.mjs`. Production checks should confirm anonymous rejection, authenticated provider reads, advancing heartbeat, released leases, preserved baseline/sent counts, and actual Discord acknowledgements when new domains occur. Avoid fake domain alerts and repeated connection-test messages.

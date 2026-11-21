@@ -65,12 +65,21 @@ class EdgeDatabase(Database):
                     "name": "intigriti",
                     "enabled": runtime["enabled"],
                     "status": status,
-                    "reason": None,
+                    "reason": (
+                        f"{self.feed['stats']['restricted_programs']} program(s) unavailable to your Intigriti account; access is retried hourly."
+                        if status == "healthy" and self.feed["stats"].get("restricted_programs")
+                        else None
+                    ),
                     "cooldown_until": runtime.get("provider_cooldown", 0),
                 }
             ],
             "discord": {"enabled": runtime["configured"], "channel_label": "phinix", "include_details": True},
             "notifications": self.notification_status(),
+            "delivery_timing": {
+                "last_sent_at": runtime.get("last_sent_at"),
+                "source_to_discord_ms": runtime.get("last_source_delivery_ms"),
+                "api_seen_to_discord_ms": runtime.get("last_api_seen_delivery_ms"),
+            },
             "collections": [
                 {
                     "provider": "intigriti",

@@ -145,6 +145,10 @@ class MonitoringService:
                 updated = datetime.fromisoformat(saved["updated_at"])
                 return {
                     **saved,
+                    "discord": {
+                        **saved.get("discord", {}),
+                        "channel_label": self.settings.discord_channel_name,
+                    },
                     "mode": "supabase_edge" if saved.get("mode") == "supabase_edge" else "github_snapshot",
                     "workers": {},
                     "snapshot_updated_at": saved["updated_at"],

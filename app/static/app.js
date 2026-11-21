@@ -29,6 +29,12 @@ function renderStatus(s) {
   const dbadge=badge(s.discord.enabled?'enabled':'disabled'); $('discord-status').className=dbadge.className; $('discord-status').textContent=s.discord.enabled?'Webhook configured':'Not configured';
   $('test-discord').classList.toggle('hidden',domainOnly); $('test-discord').disabled=!s.local_delivery_enabled; $('test-discord').textContent=cloud ? 'Tests run from GitHub Actions' : 'Send connection test ↗';
   $('delivery-description').textContent=domainOnly?'Only newly added in-scope domains are sent. Program changes and connection tests stay silent.':s.discord.enabled?(s.discord.include_details?'Event details are included in alerts. Delivery retries are automatic.':'Private mode: alerts contain no report titles, source links, or program names.'):'Configure DISCORD_WEBHOOK_URL on the server for your channel.';
+  const timing=s.delivery_timing;
+  if(edge && timing?.last_sent_at && Number.isFinite(timing.source_to_discord_ms)) {
+    $('delivery-description').textContent+=` Last real alert: ${(timing.source_to_discord_ms/1000).toFixed(2)}s after Intigriti's activity timestamp`;
+    if(Number.isFinite(timing.api_seen_to_discord_ms)) $('delivery-description').textContent+=`, ${(timing.api_seen_to_discord_ms/1000).toFixed(2)}s after API detection`;
+    $('delivery-description').textContent+='.';
+  }
   $('delivery-list').replaceChildren(...s.notifications.recent.slice(0,8).map(r=>{const row=text('div','','delivery-row'); const label=text('div',date(r.created_at));label.append(text('small',r.error_code ? r.error_code.replaceAll('_',' ') : `${r.attempts} delivery attempts`));row.append(label,badge(r.state));return row;}));
   $('checkpoints').replaceChildren(...s.collections.map(c=>{const row=text('div','','checkpoint');const label=text('div',`${names[c.provider]} / ${c.name}`);label.append(text('small',`${c.baseline_done?'Baseline saved':'Building baseline'} · ${c.pages} pages · ${date(c.last_success)}`));if(c.error_code)label.append(text('small',c.error_code.replaceAll('_',' ')));row.append(label,badge(c.status));return row;}));
   if(!s.collections.length)$('checkpoints').append(text('p','Checkpoints appear when a provider is configured.','muted'));

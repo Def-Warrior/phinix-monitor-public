@@ -26,7 +26,7 @@ class SupabaseViewer:
         rows = await self.state.request(
             "GET",
             "phinix_runtime?id=eq.1&select=enabled,configured,last_poll,status,"
-            "feed_revision,provider_cooldown,last_error",
+            "feed_revision,provider_cooldown,last_error,last_sent_at,last_source_delivery_ms,last_api_seen_delivery_ms",
         )
         runtime = rows[0] if rows else {}
         # A paused, migrated worker still owns the newest state after a viewer restart.

@@ -108,6 +108,7 @@ def test_health_updates_without_domain_changes(settings, monkeypatch):
 
     settings.snapshot_mode = True
     settings.supabase_snapshot = True
+    settings.discord_channel_name = "not-know"
     app = create_app(settings, transport=httpx.MockTransport(handle))
     with TestClient(app) as client:
         client.post("/api/login", json={"token": settings.admin_token.get_secret_value()})
@@ -119,3 +120,15 @@ def test_health_updates_without_domain_changes(settings, monkeypatch):
         assert first["revision"] == second["revision"]
         assert second["monitor_status"] == "rate_limited"
         assert client.get("/api/notifications/status").json()["counts"]["failed"] == 7
+        runtime["status"] = "healthy"
+        runtime["last_sent_at"] = now
+        runtime["last_source_delivery_ms"] = 8000
+        runtime["last_api_seen_delivery_ms"] = 1500
+        feed["stats"]["restricted_programs"] = 1
+        runtime["feed_revision"] = "timing-and-restriction"
+        app.state.remote.next_check = 0
+        status = client.get("/api/status").json()
+        assert "1 program(s) unavailable" in status["integrations"][0]["reason"]
+        assert status["delivery_timing"]["source_to_discord_ms"] == 8000
+        assert status["delivery_timing"]["api_seen_to_discord_ms"] == 1500
+        assert status["discord"]["channel_label"] == "not-know"
