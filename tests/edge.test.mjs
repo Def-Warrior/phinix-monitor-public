@@ -65,3 +65,10 @@ test('provider rate limit is recorded without retrying and does not invent domai
   await cycle({rpc,credentials:{intigriti:'fake'},config:{provider_cooldown:0},owner:P,fetcher:async()=>new Response('',{status:429,headers:{'retry-after':'123'}})});
   assert.equal(seen.code,'rate_limited');assert.equal(seen.delay,123);
 });
+test('Discord cooldown is preserved without treating a rate limit as delivery',async()=>{
+  let outcome,posts=0;
+  const payload={domain:'test.invalid',endpoints:['https://test.invalid'],scope_url:'https://app.intigriti.com/researcher/dashboard',occurred_at:new Date().toISOString()};
+  const rpc=async(op,args)=>{if(op==='claim_delivery')return [{id:'notice',payload}];if(op==='delivery_result'){outcome=args;return true;}throw new Error(op);};
+  const result=await cycle({rpc,credentials:{discord:'https://discord.com/api/webhooks/123/fake'},config:{provider_cooldown:Date.now()/1000+60},owner:P,fetcher:async()=>{posts++;return Response.json({retry_after:4.5},{status:429});}});
+  assert.equal(posts,1);assert.equal(result.sent,0);assert.equal(outcome.code,'rate_limited');assert.equal(outcome.delay,4.5);
+});
