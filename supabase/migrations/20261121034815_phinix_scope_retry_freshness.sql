@@ -184,4 +184,3 @@ revoke all on function phinix_private.edge_rpc(text,jsonb) from public,anon,auth
 grant execute on function phinix_private.edge_rpc(text,jsonb) to service_role;
 
 select phinix_private.refresh_feed();
-

@@ -134,4 +134,3 @@ begin
 end $$;
 revoke all on function phinix_private.edge_rpc(text,jsonb) from public,anon,authenticated;
 grant execute on function phinix_private.edge_rpc(text,jsonb) to service_role;
-
