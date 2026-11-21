@@ -29,7 +29,9 @@ class SupabaseViewer:
             "feed_revision,provider_cooldown,last_error",
         )
         runtime = rows[0] if rows else {}
-        if not self.edge_mode and not runtime.get("enabled"):
+        # A paused, migrated worker still owns the newest state after a viewer restart.
+        migrated = runtime.get("configured") and runtime.get("last_poll")
+        if not self.edge_mode and not runtime.get("enabled") and not migrated:
             return False
         revision = runtime["feed_revision"]
         if not self.edge_mode or revision != self.state.revision:

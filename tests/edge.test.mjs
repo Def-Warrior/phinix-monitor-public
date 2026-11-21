@@ -58,6 +58,7 @@ test('old-version access denial does not remove a currently accessible program',
   const fetcher=async url=>url.includes('/activities?')?Response.json({records:[activity],maxCount:1}):url.endsWith('/domains/'+OLD)?new Response('',{status:403}):Response.json(detail);
   await cycle({rpc,credentials:{intigriti:'fake'},config:{provider_cooldown:0},owner:P,fetcher});
   assert.equal(failed.unavailable,false);
+  assert.deepEqual(failed.current.domains,currentScope(detail,P).domains);
 });
 test('provider rate limit is recorded without retrying and does not invent domains',async()=>{
   let seen;

@@ -45,7 +45,7 @@ class EdgeDatabase(Database):
                 "sent": stats["sent_alerts"],
                 "pending": stats["pending_alerts"],
                 "sending": 0,
-                "failed": sum(x["state"] == "failed" for x in recent),
+                "failed": stats.get("failed_alerts", sum(x["state"] == "failed" for x in recent)),
             },
             "recent": recent,
         }

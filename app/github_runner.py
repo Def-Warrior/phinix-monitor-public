@@ -300,8 +300,13 @@ async def execute():
                 from app.supabase_state import SupabaseState
 
                 state = SupabaseState(providers)
-                runtime = await state.request("GET", "phinix_runtime?id=eq.1&select=enabled")
-                if runtime and runtime[0].get("enabled"):
+                runtime = await state.request(
+                    "GET", "phinix_runtime?id=eq.1&select=enabled,configured,last_poll"
+                )
+                if runtime and (
+                    runtime[0].get("enabled")
+                    or (runtime[0].get("configured") and runtime[0].get("last_poll"))
+                ):
                     raise CloudStateError("supabase_edge_owns_monitoring")
             elif backend == "github":
                 state = GitHubState(github, repository)

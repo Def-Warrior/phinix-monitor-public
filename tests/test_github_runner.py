@@ -298,6 +298,32 @@ async def test_untrusted_ref_fails_before_network(monkeypatch):
         await execute()
 
 
+@pytest.mark.parametrize("enabled", [True, False])
+async def test_migrated_edge_state_blocks_legacy_worker_even_when_paused(monkeypatch, enabled):
+    for key, value in {
+        "GITHUB_TOKEN": "fake",
+        "GITHUB_REF": "refs/heads/main",
+        "PHINIX_STATE_BACKEND": "supabase",
+        "SUPABASE_URL": "https://abcdefghijklmnopqrst.supabase.co",
+        "SUPABASE_SECRET_KEY": "fake",
+    }.items():
+        monkeypatch.setenv(key, value)
+
+    def handle(request):
+        assert request.url.path == "/rest/v1/phinix_runtime"
+        return httpx.Response(
+            200, json=[{"enabled": enabled, "configured": True, "last_poll": "2026-11-21T00:00:00+00:00"}]
+        )
+
+    factory = httpx.AsyncClient
+    monkeypatch.setattr(
+        "app.github_runner.httpx.AsyncClient",
+        lambda **kwargs: factory(transport=httpx.MockTransport(handle), **kwargs),
+    )
+    with pytest.raises(CloudStateError, match="supabase_edge_owns_monitoring"):
+        await execute()
+
+
 def test_entrypoint_sanitizes_exception(monkeypatch, tmp_path, capsys):
     async def broken():
         raise RuntimeError("do-not-show-secret")

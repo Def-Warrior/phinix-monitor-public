@@ -143,7 +143,8 @@ export async function cycle({rpc,credentials,config,owner,fetcher=fetch,now=()=>
             await call('finish_job',{job_id:job.id,...current,additions:await additions(job,current,before,after)}); checked++;
           } catch(e) {
             const err=e instanceof Failure?e:new Failure('schema_error');
-            await call('fail_job',{job_id:job.id,code:err.code,delay:err.delay,unavailable:!current&&[403,404].includes(err.status)});
+            await call('fail_job',{job_id:job.id,code:err.code,delay:err.delay,
+              unavailable:!current&&[403,404].includes(err.status),current});
             if(['rate_limited','auth_error'].includes(err.code)) throw err;
           }
         }));
