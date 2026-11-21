@@ -20,5 +20,6 @@ jobs:
       - run: pip install -r requirements-dev.lock
       - run: ruff check .
       - run: ruff format --check .
+      - run: node --test tests/edge.test.mjs
       - run: pytest -q --cov=app --cov-fail-under=85
       - run: docker build -t phinix-monitor:test .

@@ -10,20 +10,21 @@ function notice(message='') { $('notice').textContent = message; $('notice').cla
 async function api(path, options={}) { const r = await fetch(path, {credentials:'same-origin', ...options, headers:{'Content-Type':'application/json', ...options.headers}}); const data = await r.json(); if (!r.ok) { const err = new Error(typeof data.detail === 'string' ? data.detail : 'Request failed'); err.status = r.status; throw err; } return data; }
 function signedIn(value) { active = value; $('login').classList.toggle('hidden', value); $('workspace').classList.toggle('hidden', !value); $('logout').classList.toggle('hidden', !value); $('refresh').classList.toggle('hidden', !value); if (!value) { $('connection').textContent='Waiting for sign-in'; $('connection').className='badge neutral'; } }
 function renderStatus(s) {
-  const cloud = s.mode === 'github_snapshot';
+  const edge = s.mode === 'supabase_edge';
+  const cloud = edge || s.mode === 'github_snapshot';
   domainOnly = s.focus === 'intigriti_domains';
   if(domainOnly) renderDomainFocus();
   $('event-count').textContent=(domainOnly?s.domain_monitoring.active_domains:s.event_count).toLocaleString();
   const enabled=s.integrations.filter(p=>p.enabled).length;
   $('provider-count').replaceChildren(document.createTextNode(String(enabled)),text('span',domainOnly?' / 1':' / 3'));
-  $('provider-summary').textContent=cloud ? 'Monitoring runs hourly on GitHub' : enabled ? 'Collections run independently' : 'Waiting for configuration';
+  $('provider-summary').textContent=edge ? 'Intigriti checked every 6 seconds' : cloud ? 'Monitoring runs hourly on GitHub' : enabled ? 'Collections run independently' : 'Waiting for configuration';
   const counts=domainOnly?{...s.notifications.counts,sent:s.domain_monitoring.sent_alerts,pending:s.domain_monitoring.pending_alerts,sending:0}:s.notifications.counts;
   $('sent-count').textContent=counts.sent.toLocaleString(); $('pending-count').textContent=(counts.pending+counts.sending).toLocaleString();
   $('failed-summary').textContent=counts.failed ? `${counts.failed} failed — review delivery below` : 'No failed deliveries';
-  $('poll-label').textContent=cloud ? 'Hourly monitoring · GitHub' : `Poll interval · ${s.poll_interval_seconds}s`;
+  $('poll-label').textContent=edge ? '6-second monitoring · Supabase' : cloud ? 'Hourly monitoring · GitHub' : `Poll interval · ${s.poll_interval_seconds}s`;
   const names={hackerone:'HackerOne',bugcrowd:'Bugcrowd',intigriti:'Intigriti'}, icons={hackerone:'h1',bugcrowd:'◉',intigriti:'⌁'};
   $('provider-cards').replaceChildren(...s.integrations.filter(p=>!domainOnly || p.name==='intigriti').map(p=>{const card=text('article','','provider-card'); const top=text('div','','provider-card-top'); const name=text('div','','provider-name'); name.append(text('span',icons[p.name],'provider-icon'),text('span',names[p.name]));top.append(name,badge(p.status));card.append(top,text('p',p.reason || (p.status==='healthy' ? 'All configured collections are up to date.' : p.status==='auth_error' ? 'Check credentials and API permissions.' : p.status==='rate_limited' ? 'Waiting for the provider cooldown.' : 'Review collection progress below.')));return card;}));
-  const current=badge(s.ready?'ready':'degraded'); $('connection').className=current.className; $('connection').textContent=cloud ? (s.snapshot_refresh_error ? 'Snapshot refresh failed' : s.snapshot_stale ? 'Monitoring snapshot is stale' : 'Monitoring on GitHub') : s.ready?'Service ready':'Service degraded'; if(cloud && (s.snapshot_stale || s.snapshot_refresh_error)) $('connection').className='badge warning';
+  const current=badge(s.ready?'ready':'degraded'); $('connection').className=current.className; $('connection').textContent=cloud ? (s.snapshot_refresh_error ? 'Snapshot refresh failed' : s.snapshot_stale ? 'Monitoring snapshot is stale' : edge ? 'Monitoring on Supabase' : 'Monitoring on GitHub') : s.ready?'Service ready':'Service degraded'; if(cloud && (s.snapshot_stale || s.snapshot_refresh_error)) $('connection').className='badge warning';
   $('discord-channel').textContent='#'+s.discord.channel_label;
   const dbadge=badge(s.discord.enabled?'enabled':'disabled'); $('discord-status').className=dbadge.className; $('discord-status').textContent=s.discord.enabled?'Webhook configured':'Not configured';
   $('test-discord').classList.toggle('hidden',domainOnly); $('test-discord').disabled=!s.local_delivery_enabled; $('test-discord').textContent=cloud ? 'Tests run from GitHub Actions' : 'Send connection test ↗';

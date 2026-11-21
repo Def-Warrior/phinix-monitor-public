@@ -145,13 +145,14 @@ class MonitoringService:
                 updated = datetime.fromisoformat(saved["updated_at"])
                 return {
                     **saved,
-                    "mode": "github_snapshot",
+                    "mode": "supabase_edge" if saved.get("mode") == "supabase_edge" else "github_snapshot",
                     "workers": {},
                     "snapshot_updated_at": saved["updated_at"],
-                    "snapshot_stale": (datetime.now(timezone.utc) - updated).total_seconds() > 10800,
+                    "snapshot_stale": (datetime.now(timezone.utc) - updated).total_seconds()
+                    > (60 if saved.get("mode") == "supabase_edge" else 10800),
                     "snapshot_refresh_error": self.snapshot_refresh_error,
                     "ready": self.ready(),
-                    "poll_interval_seconds": 3600,
+                    "poll_interval_seconds": 6 if saved.get("mode") == "supabase_edge" else 3600,
                     "local_delivery_enabled": False,
                 }
         snapshot = self.db.snapshot()
